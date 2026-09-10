@@ -1,4 +1,5 @@
 using Android.App;
+using Android.Runtime;
 using Android.Views;
 using AndroidX.Core.Content;
 using AndroidX.Core.Util;
@@ -86,10 +87,14 @@ internal sealed class FoldObserver(Activity activity) : Java.Lang.Object, IConsu
 #if DEBUG
         Android.Util.Log.Debug("NeonDrop", $"Window layout: {layoutInfo}");
 #endif
+        using var foldingType = Java.Lang.Class.FromType(typeof(IFoldingFeature));
         foreach (var feature in layoutInfo.DisplayFeatures)
         {
-            if (feature is not IFoldingFeature fold ||
-                !(fold.IsSeparating ||
+            // IList<IDisplayFeature> может вернуть invoker базового интерфейса.
+            // Проверяем Java-тип и получаем folding-интерфейс через JNI.
+            if (!foldingType.IsInstance(feature.JavaCast<Java.Lang.Object>())) continue;
+            var fold = feature.JavaCast<IFoldingFeature>()!;
+            if (!(fold.IsSeparating ||
                   FoldingFeatureState.HalfOpened.Equals(fold.State) ||
                   FoldingFeatureOcclusionType.Full.Equals(fold.OcclusionType)))
             {
@@ -104,6 +109,9 @@ internal sealed class FoldObserver(Activity activity) : Java.Lang.Object, IConsu
         }
 
         _windowRegions = regions;
+#if DEBUG
+        Android.Util.Log.Debug("NeonDrop", $"Separating folds: {regions.Count}");
+#endif
         PublishRegions();
     }
 
