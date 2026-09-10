@@ -22,7 +22,6 @@ public sealed partial class GameEngine
             Board = board,
             Active = Active,
             Queue = _queue.ToArray(),
-            Held = Held,
             IsPaused = IsPaused,
             IsGameOver = IsGameOver,
             IsStarted = IsStarted,
@@ -32,8 +31,7 @@ public sealed partial class GameEngine
             RandomState = _randomState,
             GravityTicks = _gravityTicks,
             LockTicks = _lockTicks,
-            LockResets = _lockResets,
-            HoldUsed = _holdUsed
+            LockResets = _lockResets
         }, SnapshotJsonContext.Default.Snapshot);
     }
 
@@ -59,7 +57,6 @@ public sealed partial class GameEngine
         _queue.Clear();
         _queue.AddRange(snapshot.Queue);
         RefreshPreview();
-        Held = snapshot.Held;
         IsPaused = snapshot.IsPaused;
         IsGameOver = snapshot.IsGameOver;
         IsStarted = snapshot.IsStarted;
@@ -70,7 +67,6 @@ public sealed partial class GameEngine
         _gravityTicks = snapshot.GravityTicks;
         _lockTicks = snapshot.LockTicks;
         _lockResets = snapshot.LockResets;
-        _holdUsed = snapshot.HoldUsed;
     }
 
     private int[,] ValidateSnapshot(Snapshot snapshot)
@@ -78,13 +74,11 @@ public sealed partial class GameEngine
         if (snapshot.Version != 1 || snapshot.Board is not { Length: Width * Height } ||
             snapshot.Board.Any(value => value is < 0 or > 7) || snapshot.Queue is null ||
             snapshot.Queue.Any(kind => !Enum.IsDefined(kind)) ||
-            snapshot.Held is { } held && !Enum.IsDefined(held) ||
             snapshot.Score < 0 || snapshot.Lines < 0 ||
             snapshot.InitialRandomState == 0 || snapshot.RandomState == 0 ||
             snapshot.GravityTicks < 0 ||
             snapshot.LockTicks < 0 || snapshot.LockTicks >= LockDelayTicks ||
             snapshot.LockResets is < 0 or > MaxLockResets ||
-            snapshot.HoldUsed && snapshot.Held is null ||
             snapshot.IsPaused && (!snapshot.IsStarted || snapshot.IsGameOver))
         {
             throw new ArgumentException("Снимок содержит недопустимые значения.", "json");
@@ -104,7 +98,7 @@ public sealed partial class GameEngine
             }
         }
         else if (snapshot.Active is not null || snapshot.IsGameOver || snapshot.Queue.Length != 0 ||
-                 snapshot.Held is not null || snapshot.Score != 0 || snapshot.Lines != 0 ||
+                 snapshot.Score != 0 || snapshot.Lines != 0 ||
                  snapshot.Board.Any(value => value != 0) || snapshot.GravityTicks != 0 ||
                  snapshot.LockTicks != 0 || snapshot.LockResets != 0 ||
                  snapshot.RandomState != snapshot.InitialRandomState)
@@ -137,7 +131,6 @@ public sealed partial class GameEngine
         public required int[] Board { get; init; }
         public ActivePiece? Active { get; init; }
         public required Tetromino[] Queue { get; init; }
-        public Tetromino? Held { get; init; }
         public bool IsPaused { get; init; }
         public bool IsGameOver { get; init; }
         public bool IsStarted { get; init; }
@@ -148,7 +141,6 @@ public sealed partial class GameEngine
         public long GravityTicks { get; init; }
         public long LockTicks { get; init; }
         public int LockResets { get; init; }
-        public bool HoldUsed { get; init; }
     }
 
     [JsonSerializable(typeof(Snapshot))]

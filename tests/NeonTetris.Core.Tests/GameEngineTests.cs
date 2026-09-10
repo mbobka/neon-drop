@@ -16,7 +16,6 @@ public sealed class GameEngineTests
         game.Rotate();
         game.SoftDrop();
         game.HardDrop();
-        game.Hold();
         game.Tick(TimeSpan.FromMinutes(1));
 
         Assert.Equal(before, game.SerializeSnapshot());
@@ -34,7 +33,6 @@ public sealed class GameEngineTests
         var board = game.Board;
         game.Start();
         var initial = game.SerializeSnapshot();
-        game.Hold();
         game.Move(-2);
         game.HardDrop();
         game.TogglePause();
@@ -112,7 +110,6 @@ public sealed class GameEngineTests
         game.Rotate();
         game.SoftDrop();
         game.HardDrop();
-        game.Hold();
         game.Tick(TimeSpan.FromHours(2));
 
         Assert.Equal(before, game.SerializeSnapshot());
@@ -183,29 +180,14 @@ public sealed class GameEngineTests
     }
 
     [Fact]
-    public void HoldIsAllowedOncePerPieceAndSwapRestoresSpawnOrientation()
+    public void LockedPieceIsFollowedByThePreviewedKindAtSpawnOrientation()
     {
         var game = GameFixture.Create(new(Tetromino.T, 2, 1, 8));
         var expectedNext = game.Next[0];
 
-        game.Hold();
-
-        Assert.Equal(Tetromino.T, game.Held);
-        Assert.Equal(new ActivePiece(expectedNext, 0, 3, -1), game.Active);
-        var afterHold = game.SerializeSnapshot();
-        game.Hold();
-        Assert.Equal(afterHold, game.SerializeSnapshot());
         game.HardDrop();
-        var kindToHold = game.Active!.Kind;
-        var queueBeforeSwap = game.Next.ToArray();
-        game.Move(-2);
-        game.Rotate();
 
-        game.Hold();
-
-        Assert.Equal(new ActivePiece(Tetromino.T, 0, 3, -1), game.Active);
-        Assert.Equal(kindToHold, game.Held);
-        Assert.Equal(queueBeforeSwap, game.Next.ToArray());
+        Assert.Equal(new ActivePiece(expectedNext, 0, 3, -1), game.Active);
     }
 
     [Theory]
@@ -295,7 +277,6 @@ public sealed class GameEngineTests
         game.Rotate();
         game.SoftDrop();
         game.HardDrop();
-        game.Hold();
         game.TogglePause();
         game.Tick(TimeSpan.FromDays(1));
         Assert.Equal(before, game.SerializeSnapshot());
@@ -313,18 +294,6 @@ public sealed class GameEngineTests
 
         Assert.True(game.IsGameOver);
         Assert.Equal(1, GameFixture.Occupied(game));
-        Assert.Null(game.Active);
-    }
-
-    [Fact]
-    public void HoldAlsoDetectsBlockedSpawn()
-    {
-        var game = GameFixture.Create(new(Tetromino.O, 0, 3, 10), board => GameFixture.FillRow(board, 0, 0));
-
-        game.Hold();
-
-        Assert.True(game.IsGameOver);
-        Assert.Equal(Tetromino.O, game.Held);
         Assert.Null(game.Active);
     }
 }

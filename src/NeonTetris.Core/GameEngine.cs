@@ -14,7 +14,6 @@ public sealed partial class GameEngine
     private long _gravityTicks;
     private long _lockTicks;
     private int _lockResets;
-    private bool _holdUsed;
 
     public GameEngine(int? seed = null)
     {
@@ -31,7 +30,6 @@ public sealed partial class GameEngine
     public int[,] Board { get; } = new int[Width, Height];
     public ActivePiece? Active { get; private set; }
     public IReadOnlyList<Tetromino> Next { get; private set; } = Array.Empty<Tetromino>();
-    public Tetromino? Held { get; private set; }
     public bool IsPaused { get; private set; }
     public bool IsGameOver { get; private set; }
     public bool IsStarted { get; private set; }
@@ -68,8 +66,6 @@ public sealed partial class GameEngine
         Array.Clear(Board);
         _queue.Clear();
         _randomState = _initialRandomState;
-        Held = null;
-        _holdUsed = false;
         Score = 0;
         Lines = 0;
         IsPaused = false;
@@ -164,27 +160,6 @@ public sealed partial class GameEngine
         AddScore((landing.Y - Active!.Y) * 2L);
         Active = landing;
         LockActive();
-    }
-
-    public void Hold()
-    {
-        if (!CanPlay || _holdUsed)
-        {
-            return;
-        }
-
-        var kind = Active!.Kind;
-        var previous = Held;
-        Held = kind;
-        _holdUsed = true;
-        if (previous is { } held)
-        {
-            Spawn(held);
-        }
-        else
-        {
-            SpawnNext();
-        }
     }
 
     public void Tick(TimeSpan elapsed)
@@ -292,7 +267,6 @@ public sealed partial class GameEngine
         var points = cleared switch { 1 => 100, 2 => 300, 3 => 500, 4 => 800, _ => 0 };
         AddScore((long)points * Level);
         Lines = (int)Math.Min(int.MaxValue, (long)Lines + cleared);
-        _holdUsed = false;
         SpawnNext();
     }
 

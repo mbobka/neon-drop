@@ -10,18 +10,24 @@ public sealed class MainPage : ContentPage
     private static readonly Color Ink = Color.FromArgb("#F2F3FF");
     private static readonly Color Muted = Color.FromArgb("#98A4C4");
     private static readonly Color Mint = Color.FromArgb("#7CE8C8");
+    private const double Gap = 8;
     private readonly GameEngine game;
     private readonly AbsoluteLayout scene = new();
     private readonly GraphicsView board;
     private readonly BoardDrawable boardArt;
     private readonly GraphicsView next;
-    private readonly GraphicsView held;
     private readonly Border boardFrame;
     private readonly Grid header;
     private readonly Grid stats;
     private readonly VerticalStackLayout sidebar;
     private readonly ScrollView sidebarScroll;
-    private readonly Grid controls;
+    private readonly Button moveLeft;
+    private readonly Button moveRight;
+    private readonly Button softDrop;
+    private readonly Button rotate;
+    private readonly Button hardDrop;
+    private readonly Button helpButton;
+    private readonly View[] controls;
     private readonly Label score = Text("0", 27, Ink, true);
     private readonly Label best = Text("0", 18, Ink, true);
     private readonly Label level = Text("01", 18, Mint, true);
@@ -44,6 +50,7 @@ public sealed class MainPage : ContentPage
     private double lastWidth;
     private double lastHeight;
     private bool haptics = true;
+    private bool rightHanded = true;
     private bool helpOpen;
     private bool spaceLimited;
     private double saveElapsed;
@@ -57,6 +64,7 @@ public sealed class MainPage : ContentPage
         NavigationPage.SetHasNavigationBar(this, false);
         highScore = Preferences.Default.Get("best", 0);
         haptics = Preferences.Default.Get("haptics", true);
+        rightHanded = Preferences.Default.Get("righthanded", true);
         var saved = Preferences.Default.Get("session", "");
         if (!string.IsNullOrWhiteSpace(saved))
         {
@@ -69,10 +77,9 @@ public sealed class MainPage : ContentPage
         }
         boardArt = new BoardDrawable(game);
         board = new GraphicsView { Drawable = boardArt };
-        SemanticProperties.SetDescription(board, "Игровое поле, 10 столбцов и 20 строк. Управление кнопками под полем.");
+        SemanticProperties.SetDescription(board, "Игровое поле, 10 столбцов и 20 строк. Управление крестовиной снизу.");
         boardFrame = Card(board, 12);
-        next = new GraphicsView { Drawable = new PreviewDrawable(game, false), HeightRequest = 160 };
-        held = new GraphicsView { Drawable = new PreviewDrawable(game, true), HeightRequest = 48 };
+        next = new GraphicsView { Drawable = new PreviewDrawable(game), HeightRequest = 160 };
         pause = Button("Ⅱ", PauseOrResume, "Пауза или продолжение");
         pause.WidthRequest = 48;
         var title = new VerticalStackLayout { Spacing = 0, Children = { Text("NEON DROP", 23, Ink, true), status } };
@@ -83,33 +90,27 @@ public sealed class MainPage : ContentPage
         stats.Add(Stat("СЧЁТ", score));
         stats.Add(Stat("РЕКОРД", best), 1);
         stats.Add(Stat("УРОВЕНЬ", level), 2);
-        var reserve = Button("В резерв", () => Act(game.Hold), "Сохранить фигуру или обменять резерв");
-        reserve.FontSize = 11;
-        reserve.Padding = new Thickness(2);
         var sound = Button(haptics ? "Вибро: вкл" : "Вибро: выкл", ToggleHaptics, "Переключить виброотклик");
         sound.FontSize = 10;
         sound.Padding = new Thickness(2);
         hapticsButton = sound;
+        var hand = Button(HandText, ToggleHand, "Выбрать руку для крестовины");
+        hand.FontSize = 10;
+        hand.Padding = new Thickness(2);
+        handButton = hand;
         sidebar = new VerticalStackLayout { Spacing = 10, Children = {
             Text("ДАЛЬШЕ", 10, Muted, true), next,
-            Text("РЕЗЕРВ", 10, Muted, true), held, reserve,
-            Text("ЛИНИИ", 10, Muted, true), lines, sound
+            Text("ЛИНИИ", 10, Muted, true), lines, sound, hand
         }};
         sidebarScroll = new ScrollView { Content = sidebar, VerticalScrollBarVisibility = ScrollBarVisibility.Never };
-        controls = new Grid {
-            ColumnDefinitions = [new(GridLength.Star), new(GridLength.Star), new(GridLength.Star), new(GridLength.Star)],
-            RowDefinitions = [new(new GridLength(54)), new(new GridLength(48))],
-            ColumnSpacing = 8, RowSpacing = 8
-        };
-        controls.Add(RepeatButton("←", () => game.Move(-1), "Сдвинуть влево"), 0);
-        controls.Add(Button("↻", () => Act(() => game.Rotate()), "Повернуть по часовой стрелке"), 1);
-        controls.Add(RepeatButton("→", () => game.Move(1), "Сдвинуть вправо"), 2);
-        controls.Add(RepeatButton("↓", game.SoftDrop, "Ускорить падение"), 3);
-        var drop = Button("СБРОСИТЬ  ↓↓", () => Act(game.HardDrop), "Мгновенно опустить фигуру", true);
-        drop.FontSize = 13;
-        controls.Add(drop, 0, 1);
-        Grid.SetColumnSpan(drop, 3);
-        controls.Add(Button("?", OpenHelp, "Как играть"), 3, 1);
+        moveLeft = RepeatButton("←", () => game.Move(-1), "Сдвинуть влево");
+        moveRight = RepeatButton("→", () => game.Move(1), "Сдвинуть вправо");
+        softDrop = RepeatButton("↓", game.SoftDrop, "Ускорить падение");
+        rotate = Button("↻", () => Act(() => game.Rotate()), "Повернуть по часовой стрелке");
+        hardDrop = Button("СБРОСИТЬ  ↓↓", () => Act(game.HardDrop), "Мгновенно опустить фигуру", true);
+        hardDrop.FontSize = 12;
+        helpButton = Button("?", OpenHelp, "Как играть");
+        controls = [moveLeft, moveRight, softDrop, rotate, hardDrop, helpButton];
         play = Button("ИГРАТЬ   →", Play, "Начать игру", true);
         restart = Button("Новая игра", () => { game.Start(); helpOpen = false; ArrangeScene(); }, "Начать новую партию");
         var overlayContent = new VerticalStackLayout { Spacing = 14, Padding = 20,
@@ -117,7 +118,8 @@ public sealed class MainPage : ContentPage
         overlay = Card(new ScrollView { Content = overlayContent }, 24);
         overlay.BackgroundColor = Color.FromArgb("#131B32");
         overlay.ZIndex = 10;
-        foreach (var view in new View[] { header, stats, boardFrame, sidebarScroll, controls, overlay }) scene.Add(view);
+        foreach (var view in new View[] { header, stats, boardFrame, sidebarScroll, overlay }) scene.Add(view);
+        foreach (var view in controls) scene.Add(view);
         Content = new Grid { Children = { new Image { Source = "aurora.png", Aspect = Aspect.AspectFill, Opacity = .48, InputTransparent = true }, scene } };
         scene.SizeChanged += (_, _) => ArrangeScene();
         board.StartInteraction += (_, e) => { if (e.Touches.Length > 0) touchStart = e.Touches[0]; };
@@ -136,6 +138,9 @@ public sealed class MainPage : ContentPage
     }
 
     private readonly Button hapticsButton;
+    private readonly Button handButton;
+
+    private string HandText => rightHanded ? "Рука: правая" : "Рука: левая";
 
     protected override void OnAppearing()
     {
@@ -178,7 +183,7 @@ public sealed class MainPage : ContentPage
             "left" => () => game.Move(-1), "right" => () => game.Move(1),
             "down" => game.SoftDrop, "drop" => game.HardDrop,
             "rotate" => () => game.Rotate(), "counterrotate" => () => game.Rotate(-1),
-            "hold" => game.Hold, _ => () => { }
+            _ => () => { }
         });
     }
 
@@ -234,6 +239,14 @@ public sealed class MainPage : ContentPage
         hapticsButton.Text = haptics ? "Вибро: вкл" : "Вибро: выкл";
     }
 
+    private void ToggleHand()
+    {
+        rightHanded = !rightHanded;
+        Preferences.Default.Set("righthanded", rightHanded);
+        handButton.Text = HandText;
+        ArrangeScene();
+    }
+
     private void Play()
     {
         if (spaceLimited) return;
@@ -273,7 +286,7 @@ public sealed class MainPage : ContentPage
         restart.IsVisible = game.IsStarted && !game.IsGameOver && !helpOpen;
         overlayTitle.Text = helpOpen ? "Как играть" : game.IsGameOver ? "Ещё одну партию?" : game.IsPaused ? "Можно выдохнуть" : "Поймай свой ритм";
         overlayText.Text = helpOpen
-            ? "← → — движение, ↻ — поворот.\n↓ — мягкое падение. СБРОСИТЬ — мгновенное.\nРезерв меняет фигуру один раз за ход.\nПолная линия исчезает. Каждые 10 линий — новый уровень.\nКонтур показывает место приземления."
+            ? "← → — движение, ↻ — поворот.\n↓ — мягкое падение. СБРОСИТЬ — мгновенное.\nПолная линия исчезает. Каждые 10 линий — новый уровень.\nКонтур показывает место приземления."
             : game.IsGameOver ? $"Счёт: {game.Score:N0} · Линий: {game.Lines}\nТвой следующий рекорд уже близко."
             : game.IsPaused ? "Партия на паузе.\nПродолжай, когда будешь готов."
             : "Собирай линии. Освобождай место.\nПусть всё встанет на свои места.";
@@ -286,7 +299,7 @@ public sealed class MainPage : ContentPage
             overlayTitle.Text = "Нужно чуть больше места";
             overlayText.Text = "Разверни или раскрой устройство,\nлибо увеличь окно. Партия сохранена.";
         }
-        board.Invalidate(); next.Invalidate(); held.Invalidate();
+        board.Invalidate(); next.Invalidate();
     }
 
     private void ArrangeScene()
@@ -316,31 +329,49 @@ public sealed class MainPage : ContentPage
         {
             modalPane = panes[0];
             spaceLimited = true;
-            foreach (var view in new View[] { header, stats, boardFrame, sidebarScroll, controls }) Place(view, 0, 0, 1, 1);
+            foreach (var view in new View[] { header, stats, boardFrame, sidebarScroll }) Place(view, 0, 0, 1, 1);
+            foreach (var view in controls) Place(view, 0, 0, 1, 1);
         }
         else if (panes.Count == 0) spaceLimited = true;
         else if (wide)
         {
-            var bh = Math.Max(120, Math.Min(h - 32, (w * .49 - pad * 2) * 2));
+            // Две руки: поле по центру, кластеры управления в нижних углах.
+            var side = Math.Clamp(w * .27, 170, 320);
+            var bh = Math.Max(120, Math.Min(h - 20, (w - side * 2) * 2));
             var bw = bh / 2;
-            var left = Math.Max(pad, (w * .49 - bw) / 2);
-            Place(boardFrame, left, (h - bh) / 2, bw + 2, bh + 2);
-            var sx = Math.Max(left + bw + 24, w * .51);
-            ArrangeAuxiliary(new LayoutRect(sx, 0, w - sx - 12, h));
+            var boardX = (w - bw) / 2;
+            Place(boardFrame, boardX, (h - bh) / 2, bw + 2, bh + 2);
+            var leftWidth = Math.Max(1, boardX - pad - 14);
+            var rightX = boardX + bw + 16;
+            var rightWidth = Math.Max(1, w - pad - rightX);
+            var key = Math.Clamp(Math.Min((h - 160) / 2.6, (Math.Min(leftWidth, rightWidth) - Gap) / 2), 46, 88);
+            var leftHeight = key * 2 + Gap;
+            var rightHeight = key * 1.5 + Gap + DropHeight(key);
+            Place(header, pad, 10, leftWidth, 54);
+            Place(stats, pad, 70, leftWidth, 70);
+            var sidebarHeight = Math.Max(1, h - 26 - rightHeight - 10);
+            next.HeightRequest = Math.Clamp(sidebarHeight * .4, 60, 130);
+            Place(sidebarScroll, rightX, 10, Math.Min(rightWidth, 190), sidebarHeight);
+            PlaceTwoHanded(new LayoutRect(pad, h - 12 - leftHeight, leftWidth, leftHeight),
+                new LayoutRect(rightX, h - 12 - rightHeight, rightWidth, rightHeight), key);
+            spaceLimited |= bh < 200 || Math.Min(leftWidth, rightWidth) < 130;
             status.Text = "МАРАФОН  /  В СВОЁМ РИТМЕ";
         }
         else
         {
             Place(header, pad, 10, w - pad * 2, 54);
             Place(stats, pad, 74, w - pad * 2, 70);
+            var key = Math.Clamp(Math.Min(h * .076, (w - pad * 2 - 40) / 3.2), 46, 78);
+            var zone = ZoneHeight(key);
             var sideWidth = w >= 600 ? 140d : 82d;
-            var bh = Math.Max(120, Math.Min(h - 294, (w - pad * 2 - sideWidth - 16) * 2));
+            var bh = Math.Max(120, Math.Min(h - 183 - zone, (w - pad * 2 - sideWidth - 16) * 2));
             var bw = bh / 2;
             var left = (w - bw - sideWidth - 16) / 2;
             Place(boardFrame, left, 155, bw + 2, bh + 2);
             next.HeightRequest = Math.Clamp(bh * .31, 72, 170);
             Place(sidebarScroll, left + bw + 16, 156, sideWidth, bh);
-            Place(controls, Math.Max(pad, (w - 520) / 2), h - 122, Math.Min(w - pad * 2, 520), 110);
+            PlaceOneHanded(new LayoutRect(pad, h - 12 - zone, w - pad * 2, zone), key);
+            spaceLimited |= bh < 200;
             status.Text = "МАРАФОН  /  В СВОЁМ РИТМЕ";
         }
         var ow = Math.Min(modalPane.Width - 24, 350);
@@ -354,12 +385,74 @@ public sealed class MainPage : ContentPage
     {
         var x = pane.X + 12;
         var width = Math.Max(1, pane.Width - 24);
-        Place(header, x, pane.Y + 10, width, 54);
-        Place(stats, x, pane.Y + 74, width, 70);
-        next.HeightRequest = 90;
-        Place(sidebarScroll, x, pane.Y + 154, width, Math.Max(1, pane.Height - 284));
-        Place(controls, x, pane.Y + pane.Height - 120, width, 110);
+        // В низкой широкой панели шапка и счёт занимают один ряд, иначе управление не поместится.
+        var row = pane.Width > pane.Height * 1.2;
+        Place(header, x, pane.Y + 10, row ? width * .4 : width, 54);
+        Place(stats, row ? x + width * .42 : x, pane.Y + (row ? 8 : 74), row ? width * .58 : width, row ? 62 : 70);
+        var top = pane.Y + (row ? 78 : 154);
+        var rest = Math.Max(1, pane.Y + pane.Height - 12 - top);
+        var key = Math.Clamp(Math.Min((rest - 50) / 3.9, (width - 40) / 3.2), 46, 78);
+        var zone = ZoneHeight(key);
+        var cross = CrossSize(key);
+        if (rest - zone < 150 && width - cross > 150)
+        {
+            // Панель «ДАЛЬШЕ» встаёт рядом с крестовиной, со стороны свободной руки.
+            next.HeightRequest = Math.Clamp(rest * .45, 60, 130);
+            Place(sidebarScroll, rightHanded ? x : x + cross + 24, top, width - cross - 24, rest);
+        }
+        else
+        {
+            var sidebarHeight = Math.Max(1, rest - zone - 12);
+            next.HeightRequest = Math.Clamp(sidebarHeight * .45, 60, 150);
+            Place(sidebarScroll, x, top, width, sidebarHeight);
+        }
+
+        PlaceOneHanded(new LayoutRect(x, top + Math.Max(0, rest - zone), width, Math.Min(rest, zone)), key);
     }
+
+    // Крестовина: ↻ сверху, ← и → по бокам, ↓ снизу; центр пустой.
+    private void PlaceDpad(double x, double y, double key)
+    {
+        var step = key + Gap;
+        Place(rotate, x + step, y, key, key);
+        Place(moveLeft, x, y + step, key, key);
+        Place(moveRight, x + step * 2, y + step, key, key);
+        Place(softDrop, x + step, y + step * 2, key, key);
+    }
+
+    // Одна рука: крестовина в нижнем углу под большой палец, «СБРОСИТЬ» и «?» — над ней.
+    private void PlaceOneHanded(LayoutRect zone, double key)
+    {
+        var cross = CrossSize(key);
+        var drop = DropHeight(key);
+        var x = rightHanded ? zone.X + zone.Width - cross : zone.X;
+        var bottom = zone.Y + zone.Height;
+        PlaceDpad(x, bottom - cross, key);
+        Place(hardDrop, x, bottom - cross - Gap - drop, cross - drop - Gap, drop);
+        Place(helpButton, x + cross - drop, bottom - cross - Gap - drop, drop, drop);
+    }
+
+    // Две руки: слева ← → и ↓ под ними, справа крупный ↻, над ним «СБРОСИТЬ» и «?».
+    private void PlaceTwoHanded(LayoutRect left, LayoutRect right, double key)
+    {
+        var step = key + Gap;
+        Place(moveLeft, left.X, left.Y, key, key);
+        Place(moveRight, left.X + step, left.Y, key, key);
+        Place(softDrop, left.X + step / 2, left.Y + step, key, key);
+        var big = key * 1.5;
+        var drop = DropHeight(key);
+        var edge = right.X + right.Width;
+        var width = Math.Min(right.Width, Math.Max(big, key * 2.4));
+        Place(rotate, edge - big, right.Y + right.Height - big, big, big);
+        Place(hardDrop, edge - width, right.Y, width - drop - Gap, drop);
+        Place(helpButton, edge - drop, right.Y, drop, drop);
+    }
+
+    private static double CrossSize(double key) => key * 3 + Gap * 2;
+
+    private static double DropHeight(double key) => Math.Clamp(key * .8, 40, 56);
+
+    private static double ZoneHeight(double key) => CrossSize(key) + Gap + DropHeight(key);
 
     private IReadOnlyList<LayoutFold> LocalFolds()
     {

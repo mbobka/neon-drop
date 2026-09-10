@@ -69,14 +69,12 @@ internal sealed class BoardDrawable(GameEngine game) : IDrawable
     }
 }
 
-internal sealed class PreviewDrawable(GameEngine game, bool hold) : IDrawable
+internal sealed class PreviewDrawable(GameEngine game) : IDrawable
 {
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
-        var pieces = hold
-            ? (game.Held is { } held ? new[] { held } : Array.Empty<Tetromino>())
-            : game.Next.Take(3).ToArray();
-        var slotHeight = dirtyRect.Height / (hold ? 1 : 3);
+        var pieces = game.Next.Take(3).ToArray();
+        var slotHeight = dirtyRect.Height / 3;
         var cell = Math.Min(21, Math.Min(dirtyRect.Width / 5, slotHeight / 3));
         for (var i = 0; i < pieces.Length; i++)
         {
@@ -90,12 +88,6 @@ internal sealed class PreviewDrawable(GameEngine game, bool hold) : IDrawable
                     (dirtyRect.Width - width * cell) / 2 + (point.X - minX) * cell,
                     i * slotHeight + (slotHeight - height * cell) / 2 + (point.Y - minY) * cell,
                     cell, (int)pieces[i]);
-        }
-        if (hold && pieces.Length == 0)
-        {
-            canvas.FontColor = Color.FromArgb("#65728F");
-            canvas.FontSize = 22;
-            canvas.DrawString("—", dirtyRect, HorizontalAlignment.Center, VerticalAlignment.Center);
         }
     }
 }
