@@ -337,7 +337,7 @@ public sealed class MainPage : ContentPage
         {
             // Две руки: поле по центру, кластеры управления в нижних углах.
             var side = Math.Clamp(w * .27, 170, 320);
-            var bh = Math.Max(120, Math.Min(h - 20, w - side * 2));
+            var bh = Math.Max(120, Math.Min(h - 20, (w - side * 2) * 2));
             var bw = bh / 2;
             var boardX = (w - bw) / 2;
             Place(boardFrame, boardX, (h - bh) / 2, bw + 2, bh + 2);
