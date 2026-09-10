@@ -60,7 +60,6 @@ public class MainActivity : MauiAppCompatActivity
             Keycode.Space => "drop",
             Keycode.DpadUp or Keycode.X => "rotate",
             Keycode.Z => "counterrotate",
-            Keycode.C or Keycode.ShiftLeft or Keycode.ShiftRight => "hold",
             Keycode.P or Keycode.Escape => "pause",
             Keycode.Enter => "start",
             _ => null

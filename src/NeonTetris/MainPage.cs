@@ -15,7 +15,6 @@ public sealed class MainPage : ContentPage
     private readonly GraphicsView board;
     private readonly BoardDrawable boardArt;
     private readonly GraphicsView next;
-    private readonly GraphicsView held;
     private readonly Border boardFrame;
     private readonly Grid header;
     private readonly Grid stats;
@@ -71,8 +70,7 @@ public sealed class MainPage : ContentPage
         board = new GraphicsView { Drawable = boardArt };
         SemanticProperties.SetDescription(board, "Игровое поле, 10 столбцов и 20 строк. Управление кнопками под полем.");
         boardFrame = Card(board, 12);
-        next = new GraphicsView { Drawable = new PreviewDrawable(game, false), HeightRequest = 160 };
-        held = new GraphicsView { Drawable = new PreviewDrawable(game, true), HeightRequest = 48 };
+        next = new GraphicsView { Drawable = new PreviewDrawable(game), HeightRequest = 160 };
         pause = Button("Ⅱ", PauseOrResume, "Пауза или продолжение");
         pause.WidthRequest = 48;
         var title = new VerticalStackLayout { Spacing = 0, Children = { Text("NEON DROP", 23, Ink, true), status } };
@@ -83,16 +81,12 @@ public sealed class MainPage : ContentPage
         stats.Add(Stat("СЧЁТ", score));
         stats.Add(Stat("РЕКОРД", best), 1);
         stats.Add(Stat("УРОВЕНЬ", level), 2);
-        var reserve = Button("В резерв", () => Act(game.Hold), "Сохранить фигуру или обменять резерв");
-        reserve.FontSize = 11;
-        reserve.Padding = new Thickness(2);
         var sound = Button(haptics ? "Вибро: вкл" : "Вибро: выкл", ToggleHaptics, "Переключить виброотклик");
         sound.FontSize = 10;
         sound.Padding = new Thickness(2);
         hapticsButton = sound;
         sidebar = new VerticalStackLayout { Spacing = 10, Children = {
             Text("ДАЛЬШЕ", 10, Muted, true), next,
-            Text("РЕЗЕРВ", 10, Muted, true), held, reserve,
             Text("ЛИНИИ", 10, Muted, true), lines, sound
         }};
         sidebarScroll = new ScrollView { Content = sidebar, VerticalScrollBarVisibility = ScrollBarVisibility.Never };
@@ -178,7 +172,7 @@ public sealed class MainPage : ContentPage
             "left" => () => game.Move(-1), "right" => () => game.Move(1),
             "down" => game.SoftDrop, "drop" => game.HardDrop,
             "rotate" => () => game.Rotate(), "counterrotate" => () => game.Rotate(-1),
-            "hold" => game.Hold, _ => () => { }
+            _ => () => { }
         });
     }
 
@@ -273,7 +267,7 @@ public sealed class MainPage : ContentPage
         restart.IsVisible = game.IsStarted && !game.IsGameOver && !helpOpen;
         overlayTitle.Text = helpOpen ? "Как играть" : game.IsGameOver ? "Ещё одну партию?" : game.IsPaused ? "Можно выдохнуть" : "Поймай свой ритм";
         overlayText.Text = helpOpen
-            ? "← → — движение, ↻ — поворот.\n↓ — мягкое падение. СБРОСИТЬ — мгновенное.\nРезерв меняет фигуру один раз за ход.\nПолная линия исчезает. Каждые 10 линий — новый уровень.\nКонтур показывает место приземления."
+            ? "← → — движение, ↻ — поворот.\n↓ — мягкое падение. СБРОСИТЬ — мгновенное.\nПолная линия исчезает. Каждые 10 линий — новый уровень.\nКонтур показывает место приземления."
             : game.IsGameOver ? $"Счёт: {game.Score:N0} · Линий: {game.Lines}\nТвой следующий рекорд уже близко."
             : game.IsPaused ? "Партия на паузе.\nПродолжай, когда будешь готов."
             : "Собирай линии. Освобождай место.\nПусть всё встанет на свои места.";
@@ -286,7 +280,7 @@ public sealed class MainPage : ContentPage
             overlayTitle.Text = "Нужно чуть больше места";
             overlayText.Text = "Разверни или раскрой устройство,\nлибо увеличь окно. Партия сохранена.";
         }
-        board.Invalidate(); next.Invalidate(); held.Invalidate();
+        board.Invalidate(); next.Invalidate();
     }
 
     private void ArrangeScene()

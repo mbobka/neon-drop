@@ -29,11 +29,10 @@ public sealed class SnapshotTests
     }
 
     [Fact]
-    public void SnapshotRestoresPauseHoldBoardAndFutureBagsExactly()
+    public void SnapshotRestoresPauseBoardAndFutureBagsExactly()
     {
         var original = new GameEngine(123);
         original.Start();
-        original.Hold();
         original.Move(-2);
         original.HardDrop();
         original.Rotate(-1);
@@ -72,22 +71,20 @@ public sealed class SnapshotTests
     }
 
     [Fact]
-    public void SnapshotPreservesHoldRestriction()
+    public void SnapshotWithFieldsOfRemovedFeaturesIsRestoredWithoutThem()
     {
-        var original = new GameEngine(42);
-        original.Start();
-        original.Hold();
-        var saved = original.SerializeSnapshot();
-        var restored = new GameEngine();
-        restored.RestoreSnapshot(saved);
+        var game = GameFixture.Create(new(Tetromino.T, 0, 3, 5));
+        var expected = game.SerializeSnapshot();
+        // Снимки прежних версий хранили резерв; лишние поля просто игнорируются.
+        var legacy = GameFixture.ChangeSnapshot(game, snapshot =>
+        {
+            snapshot["Held"] = 3;
+            snapshot["HoldUsed"] = true;
+        });
 
-        restored.Hold();
+        game.RestoreSnapshot(legacy);
 
-        Assert.Equal(saved, restored.SerializeSnapshot());
-        restored.HardDrop();
-        var currentKind = restored.Active!.Kind;
-        restored.Hold();
-        Assert.Equal(currentKind, restored.Held);
+        Assert.Equal(expected, game.SerializeSnapshot());
     }
 
     [Fact]
@@ -138,7 +135,6 @@ public sealed class SnapshotTests
     [InlineData("Active", "{\"Kind\":1,\"Rotation\":4,\"X\":3,\"Y\":0}")]
     [InlineData("Active", "{\"Kind\":1,\"Rotation\":0,\"X\":2147483647,\"Y\":0}")]
     [InlineData("Active", "{\"Kind\":1,\"Rotation\":0,\"X\":3,\"Y\":-5}")]
-    [InlineData("Held", "7")]
     [InlineData("Score", "-1")]
     [InlineData("Lines", "-1")]
     [InlineData("Lines", "-2147483648")]
@@ -149,7 +145,6 @@ public sealed class SnapshotTests
     [InlineData("LockTicks", "5000000")]
     [InlineData("LockTicks", "-1")]
     [InlineData("LockResets", "16")]
-    [InlineData("HoldUsed", "true")]
     [InlineData("IsStarted", "false")]
     [InlineData("IsGameOver", "true")]
     public void InvalidSnapshotIsRejectedWithoutChangingTheRunningGame(string property, string value)
