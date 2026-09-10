@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NeonTetris.Core/NeonTetris.Core.csproj" />
+    <Project Path="src/NeonTetris/NeonTetris.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NeonTetris.Core.Tests/NeonTetris.Core.Tests.csproj" />
+  </Folder>
+</Solution>
