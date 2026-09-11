@@ -33,6 +33,7 @@ public sealed class MainPage : ContentPage
     private readonly Label level = Text("01", 18, Mint, true);
     private readonly Label lines = Text("0 / 10", 13, Muted);
     private readonly Label status = Text("МАРАФОН  /  В СВОЁМ РИТМЕ", 10, Muted);
+    private readonly Label title = Text("GAME OF BLOCKS", 23, Ink, true);
     private readonly Button pause;
     private readonly Border overlay;
     private readonly Label overlayTitle = Text("Поймай свой ритм", 25, Ink, true);
@@ -82,9 +83,10 @@ public sealed class MainPage : ContentPage
         next = new GraphicsView { Drawable = new PreviewDrawable(game), HeightRequest = 160 };
         pause = Button("Ⅱ", PauseOrResume, "Пауза или продолжение");
         pause.WidthRequest = 48;
-        var title = new VerticalStackLayout { Spacing = 0, Children = { Text("NEON DROP", 23, Ink, true), status } };
+        title.LineBreakMode = LineBreakMode.NoWrap;
+        var titleBlock = new VerticalStackLayout { Spacing = 0, Children = { title, status } };
         header = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
-        header.Add(title);
+        header.Add(titleBlock);
         header.Add(pause, 1);
         stats = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Star), new(GridLength.Star)], ColumnSpacing = 8 };
         stats.Add(Stat("СЧЁТ", score));
@@ -114,7 +116,7 @@ public sealed class MainPage : ContentPage
         play = Button("ИГРАТЬ   →", Play, "Начать игру", true);
         restart = Button("Новая игра", () => { game.Start(); helpOpen = false; ArrangeScene(); }, "Начать новую партию");
         var overlayContent = new VerticalStackLayout { Spacing = 14, Padding = 20,
-            Children = { hero, Text("N E O N   D R O P", 11, Mint, true), overlayTitle, overlayText, play, restart } };
+            Children = { hero, Text("G A M E   O F   B L O C K S", 11, Mint, true), overlayTitle, overlayText, play, restart } };
         overlay = Card(new ScrollView { Content = overlayContent }, 24);
         overlay.BackgroundColor = Color.FromArgb("#131B32");
         overlay.ZIndex = 10;
@@ -347,6 +349,8 @@ public sealed class MainPage : ContentPage
             var key = Math.Clamp(Math.Min((h - 160) / 2.6, (Math.Min(leftWidth, rightWidth) - Gap) / 2), 46, 88);
             var leftHeight = key * 2 + Gap;
             var rightHeight = key * 1.5 + Gap + DropHeight(key);
+            // В узкой боковой колонке (планшет в портрете) заголовок не должен переноситься на две строки.
+            title.FontSize = leftWidth < 300 ? 16 : 23;
             Place(header, pad, 10, leftWidth, 54);
             Place(stats, pad, 70, leftWidth, 70);
             var sidebarHeight = Math.Max(1, h - 26 - rightHeight - 10);
@@ -359,6 +363,7 @@ public sealed class MainPage : ContentPage
         }
         else
         {
+            title.FontSize = 23;
             Place(header, pad, 10, w - pad * 2, 54);
             Place(stats, pad, 74, w - pad * 2, 70);
             var key = Math.Clamp(Math.Min(h * .076, (w - pad * 2 - 40) / 3.2), 46, 78);
@@ -387,7 +392,9 @@ public sealed class MainPage : ContentPage
         var width = Math.Max(1, pane.Width - 24);
         // В низкой широкой панели шапка и счёт занимают один ряд, иначе управление не поместится.
         var row = pane.Width > pane.Height * 1.2;
-        Place(header, x, pane.Y + 10, row ? width * .4 : width, 54);
+        var headerWidth = row ? width * .4 : width;
+        title.FontSize = headerWidth < 300 ? 16 : 23;
+        Place(header, x, pane.Y + 10, headerWidth, 54);
         Place(stats, row ? x + width * .42 : x, pane.Y + (row ? 8 : 74), row ? width * .58 : width, row ? 62 : 70);
         var top = pane.Y + (row ? 78 : 154);
         var rest = Math.Max(1, pane.Y + pane.Height - 12 - top);

@@ -10,7 +10,7 @@
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationTitle>Neon Drop</ApplicationTitle>
+    <ApplicationTitle>Game of Blocks</ApplicationTitle>
     <ApplicationId>com.mbobka.neondrop</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>

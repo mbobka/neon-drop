@@ -1,8 +1,8 @@
-# NEON DROP
+# GAME OF BLOCKS
 
-Тетрис на **C# / .NET 10 MAUI** с космическими иллюстрациями, светящимися фигурами и адаптивным интерфейсом для Android.
+Тетрис на **C# / .NET 10 MAUI** с космическими иллюстрациями, светящимися фигурами и адаптивным интерфейсом для Android и iOS.
 
-<img src="docs/screenshots/phone.png" alt="Neon Drop на Android" width="360" />
+<img src="docs/screenshots/phone.png" alt="Game of Blocks на Android" width="360" />
 
 ## Запуск на Windows
 
@@ -29,6 +29,27 @@ dotnet workload install maui-android
 dotnet test tests/NeonTetris.Core.Tests
 ```
 
+## Запуск на macOS (iOS-симулятор)
+
+Нужны .NET SDK **10.0.401**, workload `maui-ios` и Xcode с установленными симуляторами. Минимальная версия приложения — iOS 15; проверено на симуляторе iPhone 16 Pro с iOS 18.6.
+
+```bash
+dotnet workload install maui-ios
+dotnet build src/NeonTetris/NeonTetris.csproj -f net10.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64
+```
+
+Готовый бандл: `src/NeonTetris/bin/Debug/net10.0-ios/iossimulator-arm64/NeonTetris.app`. На Intel-Mac вместо `iossimulator-arm64` используйте `iossimulator-x64`.
+
+Установка и запуск на уже загруженном симуляторе (`xcrun simctl list devices booted` покажет UDID):
+
+```bash
+xcrun simctl boot "iPhone 16 Pro"
+xcrun simctl install booted src/NeonTetris/bin/Debug/net10.0-ios/iossimulator-arm64/NeonTetris.app
+xcrun simctl launch booted com.mbobka.neondrop
+```
+
+iOS-таргет добавляется в проект только на macOS: на других системах остаётся один `net10.0-android`, поэтому Android-сборка не требует Apple-инструментов.
+
 ## Игра
 
 - Поле 10×20, генератор 7-bag, вращения SRS с wall kicks, задержка фиксации 500 мс.
@@ -53,18 +74,22 @@ dotnet test tests/NeonTetris.Core.Tests
 
 Касание поля поворачивает фигуру; горизонтальный свайп сдвигает на клетку, свайп вниз делает мягкое падение.
 
+Аппаратная клавиатура работает на обеих платформах. На iOS команды приходят через `UIKeyCommand`, поэтому удержание клавиш движения там не повторяется автоматически — повтор есть только на кнопках и на Android.
+
 ## Планшеты и складные экраны
 
 Размеры вычисляются по текущему окну. В широком режиме поле стоит по центру, а панели и кластеры управления — по бокам. AndroidX WindowManager сообщает о разделяющих сгибах; поле целиком помещается в безопасную область, одноручная крестовина — в соседнюю. Учитываются несколько сгибов и шарниры нулевой толщины. При слишком маленьком окне игра предлагает увеличить доступное место и сохраняет партию на паузе.
 
 Поворот, resize, переход в фон и смена posture ставят игру на паузу. Системные панели и вырезы учитываются отдельно от шарниров.
 
+На iOS сгибов нет: список областей остаётся пустым, и работают обычные раскладки — узкая на iPhone и широкая на iPad и в альбомной ориентации.
+
 Обзор моделей по состоянию на **10.09.2026** и официальные источники: [foldables.md](docs/foldables.md). Результаты локальных испытаний: [testing.md](docs/testing.md). Работа на реальных foldable-устройствах и их внешних экранах зависит от OEM и отдельно не сертифицирована.
 
 ## Структура
 
 - `src/NeonTetris.Core` — независимый движок, снимки состояния и геометрия безопасных панелей.
-- `src/NeonTetris` — MAUI UI, GraphicsView, Android lifecycle и WindowManager.
+- `src/NeonTetris` — MAUI UI, GraphicsView, Android lifecycle с WindowManager и iOS-точка входа.
 - `tests/NeonTetris.Core.Tests` — тесты правил, вращений, таймингов, восстановления и сгибов.
 - `scripts` — воспроизводимый запуск и проверка в PowerShell.
 
